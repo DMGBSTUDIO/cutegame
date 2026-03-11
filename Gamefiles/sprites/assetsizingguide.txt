@@ -1,0 +1,53 @@
+[Asset Sizes] (cell size and frame counts for any animations) 
+
+(creatures) 
+
+1. Cow.png 48x48 1 frame --> Facing right only (needs to use horizontal flip to face left also)
+2. Rooster.png 48x48 1 frame --> Facing right only (needs to use horizontal flip to face left also)
+3. Seagull.png 48x48 1 frame --> Facing right only (needs to use horizontal flip to face left also)
+4. Slime.png 48x48 1 frame --> Facing right only (needs to use horizontal flip to face left also)
+
+(harvestables) 
+
+1. Berry_Bush.png 48x48 1 frame ---- (shown when a berry bush is full or respawns)
+2. Berry_Bush_empty.png 48x48 1 frame ---(shown when a berry bush is picked) (doubles as a normal bush)
+3. Crystal.png 48x48 1 frame 
+4. Gold Ore.png 48x48 1 frame
+5. Stone.png 48x48 1 frame
+
+(trees) (are also harvestable but in their own folder called trees)
+
+1. Tree.png 96x96 1 frame (idle tree)
+2. animatedtree.png 96x96 3 frame animation
+
+(buildings) 
+
+1. Barn.png 48x48 1 frame 
+2. Factory.png 96x96 1 frame 
+3. Lighthouse.png 48x48 1 frame 
+4. Mineshaft.png 48x48 1 frame 
+5. OilPump.png 48x48 1 frame 
+
+(vehicles) 
+
+1. DumpTruck.png 96x48 1 frame (facing left only so needs to use horizontal flip to face left and right)
+2. FishingBoat.png 96x96 1 frame (facing left only so needs to use horizontal flip to face left and right)
+
+(tiles) every tile is 48x48 
+
+Green grass images -> defaultgrasstile.png, grasstile1.png - grasstile6.png
+Dead grass images -> deadgrassdefault.png, deadgrass1.png - deadgrass4.png
+
+(slime mounds) these are what spawn slimes. both are 48x48, one for each grass type
+
+1. slimemoundgreengrass.png --> is for maps with green grass
+2. slimemounddeadgrass.png --> is for dead grass
+
+(hudexampleimages) 
+
+These are simply reference images to help you create the toolbar, or we can 
+use the images here they all are 32x32. These 3 images would be placed side by 
+side to create a toolbar that is shown at the center bottom of the screen. The 
+first shows a pickaxe, the second a hatchet, and the 3rd a sword. Each one can 
+be equipped via the number shown on the hud image pressing 1 equips the pickaxe, 
+pressing 2 equips the hatchet and pressing 3 equips the sword. 
