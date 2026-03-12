@@ -6,6 +6,7 @@
 2. Rooster.png 48x48 1 frame --> Facing right only (needs to use horizontal flip to face left also)
 3. Seagull.png 48x48 1 frame --> Facing right only (needs to use horizontal flip to face left also)
 4. Slime.png 48x48 1 frame --> Facing right only (needs to use horizontal flip to face left also)
+5. Pig.png 48x48 1 frame --> Facing right only (needs to use horizontal flip to face left also)
 
 (harvestables) 
 
@@ -50,4 +51,5 @@ use the images here they all are 32x32. These 3 images would be placed side by
 side to create a toolbar that is shown at the center bottom of the screen. The 
 first shows a pickaxe, the second a hatchet, and the 3rd a sword. Each one can 
 be equipped via the number shown on the hud image pressing 1 equips the pickaxe, 
+
 pressing 2 equips the hatchet and pressing 3 equips the sword. 
