@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cozy Company: Island Ops | DMGB STUDIO</title>
+    <style>
+        /* CSS RESET & FULLSCREEN CANVAS */
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        body { background-color: #1a1a1a; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        #gameCanvas { display: block; width: 100vw; height: 100vh; }
+        
+        /* UI OVERLAY PREP */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        /* LOADING SCREEN */
+        #loader {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #2c3e50; color: white; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; z-index: 1000; transition: opacity 0.5s ease;
+        }
+        .loader-text { font-size: 24px; font-weight: bold; margin-bottom: 20px; letter-spacing: 2px;}
+        .progress-bar { width: 300px; height: 20px; background: #1a252f; border-radius: 10px; overflow: hidden; border: 2px solid #f1c40f; }
+        .progress-fill { width: 0%; height: 100%; background: #f1c40f; transition: width 0.1s linear; }
+    </style>
+</head>
+<body>
+
+    <div id="loader">
+        <div class="loader-text">DMGB STUDIO PRESENTS...</div>
+        <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+    <div id="ui-layer"></div>
+
+    <script>
+        /**
+         * COZY COMPANY: ISLAND OPS - FOUNDATION ENGINE
+         * Created by DMGB STUDIO 2026
+         */
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimize for no transparency on base layer
+
+        // --- GAME SETTINGS ---
+        const TILE_SIZE = 48;
+        const MAP_WIDTH = 100; // In tiles
+        const MAP_HEIGHT = 100; // In tiles
+        const CHUNK_SIZE = 16; 
+
+        // --- CAMERA SYSTEM ---
+        const camera = {
+            x: 0, y: 0,
+            targetX: 0, targetY: 0,
+            zoom: 1,
+            panSpeed: 15,
+            edgeThreshold: 50, // Pixels from edge to trigger pan
+            update: function(mouseX, mouseY, w, h) {
+                // Edge Panning Logic
+                if (mouseX > 0 && mouseX < this.edgeThreshold) this.targetX -= this.panSpeed;
+                if (mouseX > w - this.edgeThreshold && mouseX < w) this.targetX += this.panSpeed;
+                if (mouseY > 0 && mouseY < this.edgeThreshold) this.targetY -= this.panSpeed;
+                if (mouseY > h - this.edgeThreshold && mouseY < h) this.targetY += this.panSpeed;
+
+                // Smooth camera interpolation (Juice)
+                this.x += (this.targetX - this.x) * 0.2;
+                this.y += (this.targetY - this.y) * 0.2;
+
+                // Clamping to map bounds
+                const maxPanX = (MAP_WIDTH * TILE_SIZE) - w;
+                const maxPanY = (MAP_HEIGHT * TILE_SIZE) - h;
+                
+                if (this.targetX < 0) this.targetX = 0;
+                if (this.targetY < 0) this.targetY = 0;
+                if (this.targetX > maxPanX) this.targetX = maxPanX;
+                if (this.targetY > maxPanY) this.targetY = maxPanY;
+            }
+        };
+
+        // --- INPUT STATE ---
+        const input = { mouseX: -100, mouseY: -100 };
+        window.addEventListener('mousemove', (e) => {
+            input.mouseX = e.clientX;
+            input.mouseY = e.clientY;
+        });
+        window.addEventListener('mouseout', () => {
+            input.mouseX = -100; input.mouseY = -100; // Stop panning if mouse leaves window
+        });
+
+        // --- ASSET MANAGER ---
+        const assets = {
+            images: {},
+            paths: {
+                'grass_base': './assets/tiles/defaultgrasstile.png',
+                'grass_1': './assets/tiles/grasstile1.png',
+                'grass_2': './assets/tiles/grasstile2.png',
+                'grass_3': './assets/tiles/grasstile3.png',
+                'water_temp': null // Procedural for now
+            },
+            loadedCount: 0,
+            totalCount: 0,
+            init: function(callback) {
+                this.totalCount = Object.keys(this.paths).filter(k => this.paths[k] !== null).length;
+                if(this.totalCount === 0) return callback();
+
+                for (let key in this.paths) {
+                    if(!this.paths[key]) continue;
+                    const img = new Image();
+                    img.onload = () => {
+                        this.loadedCount++;
+                        document.getElementById('progress-fill').style.width = `${(this.loadedCount / this.totalCount) * 100}%`;
+                        if (this.loadedCount === this.totalCount) setTimeout(callback, 500); // 500ms delay for juice
+                    };
+                    img.onerror = () => {
+                        console.warn(`Asset missing: ${this.paths[key]}. Using fallback render.`);
+                        this.loadedCount++; // Still count to avoid infinite load
+                        if (this.loadedCount === this.totalCount) setTimeout(callback, 500);
+                    }
+                    img.src = this.paths[key];
+                    this.images[key] = img;
+                }
+            }
+        };
+
+        // --- MAP GENERATION ---
+        let mapData = []; // 0 = water, 1-4 = grass variants
+        function generateMap() {
+            const centerX = MAP_WIDTH / 2;
+            const centerY = MAP_HEIGHT / 2;
+            const maxRadius = 40; // Island size
+
+            for (let y = 0; y < MAP_HEIGHT; y++) {
+                mapData[y] = [];
+                for (let x = 0; x < MAP_WIDTH; x++) {
+                    // Distance from center to create rough circular island
+                    const dist = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+                    // Add some noise/randomness to the edge
+                    const edgeNoise = (Math.random() * 10) - 5; 
+                    
+                    if (dist + edgeNoise < maxRadius) {
+                        // Land - assign random grass tile based on your spec
+                        const rand = Math.random();
+                        if(rand < 0.7) mapData[y][x] = 1; // 70% default grass
+                        else if(rand < 0.8) mapData[y][x] = 2;
+                        else if(rand < 0.9) mapData[y][x] = 3;
+                        else mapData[y][x] = 4;
+                    } else {
+                        // Water
+                        mapData[y][x] = 0;
+                    }
+                }
+            }
+            // Center camera on start
+            camera.targetX = (centerX * TILE_SIZE) - (canvas.width / 2);
+            camera.targetY = (centerY * TILE_SIZE) - (canvas.height / 2);
+            camera.x = camera.targetX;
+            camera.y = camera.targetY;
+        }
+
+        // --- RENDER PIPELINE ---
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            ctx.imageSmoothingEnabled = false; // Keep pixel art crisp
+        }
+        window.addEventListener('resize', resize);
+
+        function drawMap() {
+            // Determine visible grid range based on camera to cull unseen tiles (Performance optimization)
+            const startCol = Math.floor(camera.x / TILE_SIZE);
+            const endCol = startCol + (canvas.width / TILE_SIZE) + 1;
+            const startRow = Math.floor(camera.y / TILE_SIZE);
+            const endRow = startRow + (canvas.height / TILE_SIZE) + 1;
+
+            for (let y = startRow; y < endRow; y++) {
+                for (let x = startCol; x < endCol; x++) {
+                    // Bounds check
+                    if (y >= 0 && y < MAP_HEIGHT && x >= 0 && x < MAP_WIDTH) {
+                        const tileVal = mapData[y][x];
+                        const drawX = Math.floor((x * TILE_SIZE) - camera.x);
+                        const drawY = Math.floor((y * TILE_SIZE) - camera.y);
+
+                        if (tileVal === 0) {
+                            // Temporary Procedural Water
+                            ctx.fillStyle = '#3498db';
+                            ctx.fillRect(drawX, drawY, TILE_SIZE, TILE_SIZE);
+                        } else {
+                            // Grass Render (with fallback if image isn't loaded/found)
+                            let imgKey = 'grass_base';
+                            if(tileVal === 2) imgKey = 'grass_1';
+                            if(tileVal === 3) imgKey = 'grass_2';
+                            if(tileVal === 4) imgKey = 'grass_3';
+
+                            if (assets.images[imgKey] && assets.images[imgKey].complete && assets.images[imgKey].naturalWidth > 0) {
+                                ctx.drawImage(assets.images[imgKey], drawX, drawY, TILE_SIZE, TILE_SIZE);
+                            } else {
+                                // Fallback colors if PNGs are missing from your folder
+                                ctx.fillStyle = tileVal === 1 ? '#2ecc71' : '#27ae60';
+                                ctx.fillRect(drawX, drawY, TILE_SIZE, TILE_SIZE);
+                                // Draw grid line for visual structure during testing
+                                ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+                                ctx.strokeRect(drawX, drawY, TILE_SIZE, TILE_SIZE);
+                            }
+                        }
+                    } else {
+                        // Out of bounds (Ocean boundary)
+                        ctx.fillStyle = '#2980b9';
+                        ctx.fillRect((x * TILE_SIZE) - camera.x, (y * TILE_SIZE) - camera.y, TILE_SIZE, TILE_SIZE);
+                    }
+                }
+            }
+        }
+
+        // --- GAME LOOP ---
+        function update() {
+            camera.update(input.mouseX, input.mouseY, canvas.width, canvas.height);
+        }
+
+        function draw() {
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height); // Clear screen
+            
+            drawMap();
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // --- BOOTSTRAP ---
+        resize();
+        assets.init(() => {
+            document.getElementById('loader').style.opacity = '0';
+            setTimeout(() => document.getElementById('loader').remove(), 500); // Remove from DOM after fade
+            generateMap();
+            loop();
+        });
+
+    </script>
+</body>
+</html>
